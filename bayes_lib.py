@@ -11,11 +11,9 @@ class ExactGPModel(GPyTorchModel, gpytorch.models.ExactGP):
     
     def __init__(self, train_x, train_y, likelihood):
         # super(ExactGPModel, self).__init__(train_x, train_y, likelihood)
-        super().__init__(train_x.reshape(-1), train_y.reshape(-1), likelihood)
+        super().__init__(train_x, train_y, likelihood)
         self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel())
-        # self.covar_module = gpytorch.kernels.RBFKernel()
-        # self.covar_module.lengthscale = 0.4
         self.to(train_x)
         
         
@@ -40,9 +38,9 @@ def train_hyper_params(model, likelihood, training_iter=20, verbose=False):
         # Zero gradients from previous iteration
         optimizer.zero_grad()
         # Output from model
-        output = model(train_x)
+        output = model(model.train_inputs[0])
         # Calc loss and backprop gradients
-        loss = -mll(output, train_y)
+        loss = -mll(output, model._train_targets[0])
         loss.backward()
         if verbose:
             print('Iter %d/%d - Loss: %.3f   lengthscale: %.3f   noise: %.3f' % (

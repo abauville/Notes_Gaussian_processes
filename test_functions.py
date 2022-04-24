@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 # This function was copied from: https://github.com/oxfordcontrol/Bayesian-Optimization/blob/master/benchmark_functions.py
 
 class Hart6:
@@ -7,14 +8,16 @@ class Hart6:
     Based on the following MATLAB code:
     https://www.sfu.ca/~ssurjano/hart6.html
     '''
-    def __init__(self, sd=0):
+    def __init__(self, sd=0, return_negative=False):
         self.sd = sd
         self.bounds = np.array([[0, 1], [0, 1], [0, 1],
                                [0, 1], [0, 1], [0, 1]])
         self.min = np.array([0.20169, 0.150011, 0.476874,
                              0.275332, 0.311652, 0.6573])
         self.fmin = -3.32237
-
+        
+        self.return_negative = return_negative
+        
     def f(self, xx):
         if len(xx.shape) == 1:
             xx = xx.reshape((1, 6))
@@ -53,4 +56,7 @@ class Hart6:
         else:
             noise = np.random.normal(0, self.sd, n)
 
-        return (y + noise).reshape((n, 1))
+        out = torch.from_numpy((y + noise).reshape((n, 1))).float().reshape(-1)
+        if self.return_negative:
+            return - out
+        return out
