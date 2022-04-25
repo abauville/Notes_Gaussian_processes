@@ -8,7 +8,6 @@ from IPython.display import clear_output
 from botorch.generation.gen import gen_candidates_torch, get_best_candidates
 from botorch.optim.initializers import gen_batch_initial_conditions
 from botorch.fit import fit_gpytorch_model
-import warnings
 
 class ExactGPModel(GPyTorchModel, gpytorch.models.ExactGP):
     _num_outputs = 1
@@ -53,8 +52,8 @@ def train_hyper_params(model, likelihood, training_iter=20, verbose=False):
 #         optimizer.step()
 
 
-def get_x_new(aquisition_func, model, best_f):
-    bounds = torch.tensor([[0., 1.]] * 6).T
+def get_x_new(aquisition_func, model, best_f, device='cpu'):
+    bounds = torch.tensor([[0., 1.]] * 6).T.to(device)
     Xinit = gen_batch_initial_conditions(aquisition_func, bounds, q=1, num_restarts=25, raw_samples=500)
 
     batch_candidates, batch_acq_values = gen_candidates_torch(
@@ -64,7 +63,6 @@ def get_x_new(aquisition_func, model, best_f):
         upper_bounds=bounds[1],
     )
     return get_best_candidates(batch_candidates, batch_acq_values)[0].detach()
-
 
 def run_bayes_opt(Model, likelihood, train_x, train_y, gt_function, error_function=None, num_test_points=100, min_iter=2, max_iter=100):
     """
