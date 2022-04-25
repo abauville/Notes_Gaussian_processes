@@ -102,3 +102,36 @@ error_function: function, optional
             error_function()
         
         
+def run_experiment(gt_func, n_iter, n_train_ini):
+    best_fs = np.zeros(n_iter)
+    # Initialize the experiment
+    # ============================
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    train_x = torch.rand(6*n_train_ini).reshape(-1,6).to(device)
+    train_y = gt_func(train_x).to(device)
+    best_f = train_y.max().item()
+    for it in range(n_iter):
+        # Run the forward model with hyperparam opt
+        # ============================
+        likelihood = GaussianLikelihood(noise_constraint=Interval(0.0,1e-4)).to(device)
+        model = ExactGPModel(train_x, train_y, likelihood).to(device)
+        train_hyper_params(model, likelihood)
+        # New point aquisition
+        # ============================
+        EI = ExpectedImprovement(model, best_f=best_f, maximize=True)
+        x_new = get_x_new(EI, model, best_f, device)
+        y_new = gt_func(x_new).to(device)
+        best_f = max(y_new.item(), best_f)
+
+        train_x = torch.cat((train_x.reshape(-1,1), x_new.reshape(-1,1))).reshape(-1,6)
+        train_y = torch.cat((train_y.reshape(-1,1), y_new.reshape(-1,1))).reshape(-1)
+        # Print
+        # ============================
+        if (it+1)%print_period == 0:
+            clear_output()
+            print(f"{it+1:03d}/{n_iter}: {best_f:.5f}, {train_y[-1].item():.5f}, {np.log10(error_gap(best_f)):.5f}")
+
+        # Record metric
+        # ============================
+        best_fs[it] = best_f
+    return best_fs
