@@ -15,8 +15,13 @@ class Hart6:
         self.min = np.array([0.20169, 0.150011, 0.476874,
                              0.275332, 0.311652, 0.6573])
         self.fmin = -3.32237
-        
         self.return_negative = return_negative
+        
+        if self.return_negative:
+            self.fmin = -self.fmin
+        
+    def error_gap(self, current_best):
+        return np.abs(self.fmin - current_best)
         
     def f(self, xx):
         if len(xx.shape) == 1:
