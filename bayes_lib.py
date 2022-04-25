@@ -87,7 +87,7 @@ tensor of shape (n, d)
     return torch.stack(out).T.reshape(-1,1,ndim).float()
 
 
-def get_x_new(EI, n_test, n_iter=1, refinement_fac = 1.1):
+def get_x_new(EI, n_test, n_iter=1, refinement_fac = 1.1, device='cpu'):
     """Performs the aquisition step n_iter times on n random samples taken from a normal distribution.
     At each iteration: 
       - the mean of the distribution is set to the location of the proposed point (argmax of aquisition function)
@@ -96,6 +96,7 @@ def get_x_new(EI, n_test, n_iter=1, refinement_fac = 1.1):
     """
     best_ei = -1e10
     mu = [0.5] * 6
+    sigma = 0.25
     for j in range(n_iter):
         test_x = (torch.randn(int(n_test)*6).reshape(-1,1,6).float().to(device) * sigma/(refinement_fac**j))
         for ii in range(6):
