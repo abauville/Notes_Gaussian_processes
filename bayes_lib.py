@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 from botorch.acquisition.analytic import ExpectedImprovement
 from botorch.models.gpytorch import GPyTorchModel
 from IPython.display import clear_output
-from botorch.generation.gen import gen_candidates_torch, get_best_candidates
+from botorch.generation.gen import gen_candidates_scipy, gen_candidates_torch, get_best_candidates
 from botorch.optim.initializers import gen_batch_initial_conditions
 from botorch.fit import fit_gpytorch_model
 import numpy as np
@@ -42,14 +42,17 @@ def train_hyper_params(model, likelihood):
 def get_x_new(aquisition_func, model, device='cpu'):
     """Returns the point to aquire given an aquisition function and surrogate model."""
     bounds = torch.tensor([[0., 1.]] * 6).T.to(device)
+    print("gen_batch_initial_conditions")
     Xinit = gen_batch_initial_conditions(aquisition_func, bounds, q=1, num_restarts=25, raw_samples=500)
-
-    batch_candidates, batch_acq_values = gen_candidates_torch(
+    print("gen_candidates_torch")
+    # Note: gen_candidates_torch might be faster but it tends to stall. gen_candidates_scipy is more reliable
+    batch_candidates, batch_acq_values = gen_candidates_scipy(
         initial_conditions=Xinit,
         acquisition_function=aquisition_func,
         lower_bounds=bounds[0],
         upper_bounds=bounds[1],
     )
+    print("get_best_candidates")
     return get_best_candidates(batch_candidates, batch_acq_values)[0].detach()
         
         
@@ -88,17 +91,23 @@ def run_experiment(gt_func, n_iter=1, n_train_ini=1, print_period=1):
     for it in range(n_iter):
         # Run the forward model with hyperparam opt
         # ============================
+        print("init likelihook")
         likelihood = GaussianLikelihood(noise_constraint=Interval(0.0,1e-4)).to(device)
+        print("init model")
         model = ExactGPModel(train_x, train_y, likelihood).to(device)
+        print("train hyper params")
         train_hyper_params(model, likelihood)
         
         # New point aquisition
         # ============================
+        print("Expected improvement")
         EI = ExpectedImprovement(model, best_f=best_f, maximize=True)
+        print("get_x_new")
         x_new = get_x_new(EI, model, device)
+        print("gt_func")
         y_new = gt_func(x_new).to(device)
         best_f = max(y_new.item(), best_f)
-
+        
         train_x = torch.cat((train_x.reshape(-1,1), x_new.reshape(-1,1))).reshape(-1,6)
         train_y = torch.cat((train_y.reshape(-1,1), y_new.reshape(-1,1))).reshape(-1)
         
